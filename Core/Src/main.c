@@ -23,7 +23,7 @@
 /* USER CODE BEGIN Includes */
 
 #include <stdint.h>
-#include <string.h>  // string handling functions like strcmp
+#include <string.h>  // string handling functions (ex. strcmp and memset)
 
 /* USER CODE END Includes */
 
@@ -34,6 +34,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+#define RX_BUFFER_SIZE 64
 
 /* USER CODE END PD */
 
@@ -48,10 +50,10 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 
 /* UART reception */
-uint8_t rx_indx = 0;           // Current index in rx_buffer
-uint8_t rx_data[2];            // Temporary byte storage during RX interrupt
-uint8_t rx_buffer[100];        // Full buffer to store user command
-uint8_t transfer_cplt = 0;     // Flag indicating full command received
+uint8_t rx_indx = 0;                    // Current index in rx_buffer
+uint8_t rx_data[2];                     // Temporary byte storage during RX interrupt
+uint8_t rx_buffer[RX_BUFFER_SIZE];      // Full buffer to store user command
+uint8_t transfer_cplt = 0;              // Flag indicating full command received
 
 /* USER CODE END PV */
 
@@ -243,7 +245,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
       rx_indx = 0;
       transfer_cplt = 1;
 
-      HAL_UART_Transmit(&huart2, (uint8_t*)"\n\r", 2, 100);
+      HAL_UART_Transmit(&huart1, (uint8_t*)"\n\r", 2, 100);
 
       // Compare full string and take action
       if (!strcmp((char*)rx_buffer, "LED ON"))
@@ -258,10 +260,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     }
 
     // Re-arm UART RX interrupt for next byte
-    HAL_UART_Receive_IT(&huart2, rx_data, 1);
+    HAL_UART_Receive_IT(&huart1, rx_data, 1);
 
     // Echo received character back (optional)
-    HAL_UART_Transmit(&huart2, rx_data, strlen((char*)rx_data), 100);
+    HAL_UART_Transmit(&huart1, rx_data, strlen((char*)rx_data), 100);
   }
 }
 
