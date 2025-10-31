@@ -25,8 +25,6 @@
 #include <stdint.h>
 #include <string.h>  // string handling functions (ex. strcmp and memset)
 
-#include "ringbuffer.h"
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,8 +35,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define RING_BUFFER_SIZE 128
-#define RX_BUFFER_SIZE 64
+/* Size of Reception buffer */
+#define RX_BUFFER_SIZE 20  // 64
 
 /* USER CODE END PD */
 
@@ -49,31 +47,42 @@
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart1;
+DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
 
-/* UART reception */
-uint8_t rx_indx = 0;                    // Current index in rx_buffer
-uint8_t rx_data[2];                     // Temporary byte storage during RX interrupt
-uint8_t rx_buffer[RX_BUFFER_SIZE];      // Full buffer to store user command
-uint8_t transfer_cplt = 0;              // Flag indicating full command received
+/**
+  * @brief Text strings printed on PC Com port for user information
+  */
+uint8_t aTextInfoStart[] = "\r\nUSART Example : Enter characters to fill reception buffers.\r\n";
+
+uint8_t aRXBufferUser[RX_BUFFER_SIZE];
+
+/**
+  * @brief Data buffers used to manage received data in interrupt routine
+  */
+uint8_t aRXBufferA[RX_BUFFER_SIZE];
+uint8_t aRXBufferB[RX_BUFFER_SIZE];
+
+__IO uint32_t     uwNbReceivedChars;
+uint8_t *pBufferReadyForUser;
+uint8_t *pBufferReadyForReception;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void PrintInfo(UART_HandleTypeDef *huart, uint8_t *String, uint16_t Size);
+void StartReception(void);
+void UserDataTreatment(UART_HandleTypeDef *huart, uint8_t* pData, uint16_t Size);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-/* Create the ring buffer and ring buffer array */
-ring_buffer_t ring_buffer;
-char ring_buffer_arr[RING_BUFFER_SIZE];
 
 /* USER CODE END 0 */
 
@@ -95,9 +104,6 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 
-  /* Initialize the ring buffer */
-  ring_buffer_init(&ring_buffer, ring_buffer_arr, sizeof(ring_buffer_arr));
-
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -109,11 +115,12 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  /* Start receiving UART data in interrupt mode */
-  HAL_UART_Receive_IT(&huart1, rx_data, 1);
+  /* Initiate Continuous reception */
+  StartReception();
 
   /* USER CODE END 2 */
 
@@ -191,7 +198,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 38400;  // 57600;  // 115200;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -207,6 +214,22 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 
 }
 
@@ -232,63 +255,151 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /**
-  * @brief UART receive complete callback
-  * This is called after each received byte.
+  * @brief  Send Txt information message on UART Tx line (to PC Com port).
+  * @param  huart UART handle.
+  * @param  String String to be sent to user display
+  * @param  Size   Size of string
+  * @retval None
   */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void PrintInfo(UART_HandleTypeDef *huart, uint8_t *String, uint16_t Size)
 {
-  if (huart->Instance == USART1)
+  if (HAL_OK != HAL_UART_Transmit(huart, String, Size, 100))
   {
-    // First byte in command: clear buffer
-    if (rx_indx == 0)
-      memset(rx_buffer, 0, sizeof(rx_buffer));
+    Error_Handler();
+  }
+}
 
-    // If not carriage return (Enter key)
-    if (rx_data[0] != 13)
+/**
+  * @brief  This function prints user info on PC com port and initiates RX transfer
+  * @retval None
+  */
+void StartReception(void)
+{
+  /* Initializes Buffer swap mechanism (used in User callback) :
+     - 2 physical buffers aRXBufferA and aRXBufferB (RX_BUFFER_SIZE length)
+  */
+  pBufferReadyForReception = aRXBufferA;
+  pBufferReadyForUser      = aRXBufferB;
+  uwNbReceivedChars        = 0;
+
+  /* Print user info on PC com port */
+  PrintInfo(&huart1, aTextInfoStart, COUNTOF(aTextInfoStart));
+
+  /* Initializes Rx sequence using Reception To Idle event API.
+     As DMA channel associated to UART Rx is configured as Circular,
+     reception is endless.
+     If reception has to be stopped, call to HAL_UART_AbortReceive() could be used.
+
+     Use of HAL_UARTEx_ReceiveToIdle_DMA service, will generate calls to
+     user defined HAL_UARTEx_RxEventCallback callback for each occurrence of
+     following events :
+     - DMA RX Half Transfer event (HT)
+     - DMA RX Transfer Complete event (TC)
+     - IDLE event on UART Rx line (indicating a pause is UART reception flow)
+  */
+  if (HAL_OK != HAL_UARTEx_ReceiveToIdle_DMA(&huart1, aRXBufferUser, RX_BUFFER_SIZE))
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief  This function handles buffer containing received data on PC com port
+  * @note   In this example, received data are sent back on UART Tx (loopback)
+  *         Any other processing such as copying received data in a larger buffer to make it
+  *         available for application, could be implemented here.
+  * @note   This routine is executed in Interrupt context.
+  * @param  huart UART handle.
+  * @param  pData Pointer on received data buffer to be processed
+  * @retval Size  Nb of received characters available in buffer
+  */
+void UserDataTreatment(UART_HandleTypeDef *huart, uint8_t* pData, uint16_t Size)
+{
+  /*
+   * This function might be called in any of the following interrupt contexts :
+   *  - DMA TC and HT events
+   *  - UART IDLE line event
+   *
+   * pData and Size defines the buffer where received data have been copied, in order to be processed.
+   * During this processing of already received data, reception is still ongoing.
+   *
+   */
+  uint8_t* pBuff = pData;
+  uint8_t  i;
+
+  /* Implementation of loopback is on purpose implemented in direct register access,
+     in order to be able to echo received characters as fast as they are received.
+     Wait for TC flag to be raised at end of transmit is then removed, only TXE is checked */
+  for (i = 0; i < Size; i++)
+  {
+    while (!(__HAL_UART_GET_FLAG(huart, UART_FLAG_TXE))) {}
+    huart->Instance->TDR = *pBuff;
+    pBuff++;
+  }
+
+}
+
+/**
+  * @brief  User implementation of the Reception Event Callback
+  *         (Rx event notification called after use of advanced reception service).
+  * @param  huart UART handle
+  * @param  Size  Number of data available in application reception buffer (indicates a position in
+  *               reception buffer until which, data are available)
+  * @retval None
+  */
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+  static uint8_t old_pos = 0;
+  uint8_t *ptemp;
+  uint8_t i;
+
+  /* Check if number of received data in recpetion buffer has changed */
+  if (Size != old_pos)
+  {
+    /* Check if position of index in reception buffer has simply be increased
+       of if end of buffer has been reached */
+    if (Size > old_pos)
     {
-      rx_buffer[rx_indx++] = rx_data[0];
-      rx_buffer[rx_indx] = '\0';  // Keep buffer null-terminated
-
-      ring_buffer_queue(&ring_buffer, (char)rx_data[0]);
+      /* Current position is higher than previous one */
+      uwNbReceivedChars = Size - old_pos;
+      /* Copy received data in "User" buffer for evacuation */
+      for (i = 0; i < uwNbReceivedChars; i++)
+      {
+        pBufferReadyForUser[i] = aRXBufferUser[old_pos + i];
+      }
     }
     else
     {
-    //   /* Dequeue all elements from the ring buffer */
-    //   char tmp;
-    //   for (int cnt = 0; ring_buffer_dequeue(&ring_buffer, &tmp) > 0; cnt++) {
-    //     /* Do something with buf... */
-    //   }
-
-      // Full command received
-      rx_indx = 0;
-      transfer_cplt = 1;
-
-      HAL_UART_Transmit(&huart1, (uint8_t*)"\n\r", 2, 100);
-
-      // Compare full string and take action
-      if (!strcmp((char*)rx_buffer, "LED ON"))
+      /* Current position is lower than previous one : end of buffer has been reached */
+      /* First copy data from current position till end of buffer */
+      uwNbReceivedChars = RX_BUFFER_SIZE - old_pos;
+      /* Copy received data in "User" buffer for evacuation */
+      for (i = 0; i < uwNbReceivedChars; i++)
       {
-        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+        pBufferReadyForUser[i] = aRXBufferUser[old_pos + i];
       }
-      else if (!strcmp((char*)rx_buffer, "LED OFF"))
+      /* Check and continue with beginning of buffer */
+      if (Size > 0)
       {
-        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+        for (i = 0; i < Size; i++)
+        {
+          pBufferReadyForUser[uwNbReceivedChars + i] = aRXBufferUser[i];
+        }
+        uwNbReceivedChars += Size;
       }
-      // Else: do nothing for unrecognized commands
     }
+    /* Process received data that has been extracted from Rx User buffer */
+    UserDataTreatment(huart, pBufferReadyForUser, uwNbReceivedChars);
 
-    // Re-arm UART RX interrupt for next byte
-    HAL_UART_Receive_IT(&huart1, rx_data, 1);
-
-    // Echo received character back (optional)
-    // HAL_UART_Transmit(&huart1, rx_data, strlen((char*)rx_data), 100);
-
-    char tmp_ch;
-    ring_buffer_dequeue(&ring_buffer, &tmp_ch);
-    uint8_t tmp_u8;
-    tmp_u8 = (uint8_t)tmp_ch;
-    HAL_UART_Transmit(&huart1, &tmp_u8, 1, 100);
+    /* Swap buffers for next bytes to be processed */
+    ptemp = pBufferReadyForUser;
+    pBufferReadyForUser = pBufferReadyForReception;
+    pBufferReadyForReception = ptemp;
   }
+  /* Update old_pos as new reference of position in User Rx buffer that
+     indicates position to which data have been processed */
+  old_pos = Size;
+
 }
 
 /* USER CODE END 4 */
