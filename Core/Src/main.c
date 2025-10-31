@@ -25,6 +25,8 @@
 #include <stdint.h>
 #include <string.h>  // string handling functions (ex. strcmp and memset)
 
+#include "ringbuffer.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,6 +37,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+#define RING_BUFFER_SIZE 128
 #define RX_BUFFER_SIZE 64
 
 /* USER CODE END PD */
@@ -61,13 +64,16 @@ uint8_t transfer_cplt = 0;              // Flag indicating full command received
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/* Create the ring buffer and ring buffer array */
+ring_buffer_t ring_buffer;
+char ring_buffer_arr[RING_BUFFER_SIZE];
 
 /* USER CODE END 0 */
 
@@ -89,6 +95,9 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 
+  /* Initialize the ring buffer */
+  ring_buffer_init(&ring_buffer, ring_buffer_arr, sizeof(ring_buffer_arr));
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -100,8 +109,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART1_UART_Init();  /* Configure the UART peripheral */
-
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
   /* Start receiving UART data in interrupt mode */
@@ -138,7 +146,9 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL12;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -148,12 +158,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -181,7 +191,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 38400;  // 57600;  // 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -238,9 +248,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     {
       rx_buffer[rx_indx++] = rx_data[0];
       rx_buffer[rx_indx] = '\0';  // Keep buffer null-terminated
+
+      ring_buffer_queue(&ring_buffer, (char)rx_data[0]);
     }
     else
     {
+    //   /* Dequeue all elements from the ring buffer */
+    //   char tmp;
+    //   for (int cnt = 0; ring_buffer_dequeue(&ring_buffer, &tmp) > 0; cnt++) {
+    //     /* Do something with buf... */
+    //   }
+
       // Full command received
       rx_indx = 0;
       transfer_cplt = 1;
@@ -263,7 +281,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     HAL_UART_Receive_IT(&huart1, rx_data, 1);
 
     // Echo received character back (optional)
-    HAL_UART_Transmit(&huart1, rx_data, strlen((char*)rx_data), 100);
+    // HAL_UART_Transmit(&huart1, rx_data, strlen((char*)rx_data), 100);
+
+    char tmp_ch;
+    ring_buffer_dequeue(&ring_buffer, &tmp_ch);
+    uint8_t tmp_u8;
+    tmp_u8 = (uint8_t)tmp_ch;
+    HAL_UART_Transmit(&huart1, &tmp_u8, 1, 100);
   }
 }
 
