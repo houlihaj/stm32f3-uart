@@ -23,7 +23,8 @@
 /* USER CODE BEGIN Includes */
 
 #include <stdint.h>
-#include <string.h>  // string handling functions (ex. strcmp and memset)
+#include <string.h>  /* string handling functions (ex. strcmp and memset) */
+#include "cli.h"
 
 /* USER CODE END Includes */
 
@@ -36,7 +37,7 @@
 /* USER CODE BEGIN PD */
 
 /* Size of Reception buffer */
-#define RX_BUFFER_SIZE 20  // 64
+#define RX_BUFFER_SIZE 20
 
 /* USER CODE END PD */
 
@@ -68,6 +69,16 @@ __IO uint32_t     uwNbReceivedChars;
 uint8_t *pBufferReadyForUser;
 uint8_t *pBufferReadyForReception;
 
+/**
+  * @brief cli.c
+  */
+static cli_status_t help_func(int argc, char **argv);
+static cli_status_t blink_func(int argc, char **argv);
+
+cmd_t cmd_tbl[] = {{.cmd = "help", .func = help_func}, {.cmd = "blink", .func = blink_func}};
+
+cli_t cli;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,6 +90,8 @@ static void MX_USART1_UART_Init(void);
 void PrintInfo(UART_HandleTypeDef *huart, uint8_t *String, uint16_t Size);
 void StartReception(void);
 void UserDataTreatment(UART_HandleTypeDef *huart, uint8_t* pData, uint16_t Size);
+
+void user_uart_println(char* String);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -119,15 +132,23 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  /* cli.c */
+  cli.println = user_uart_println;
+  cli.cmd_tbl = cmd_tbl;
+  cli.cmd_cnt = sizeof(cmd_tbl) / sizeof(cmd_t);
+  cli_init(&cli);
+
   /* Initiate Continuous reception */
   StartReception();
-
+  
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    cli_process(&cli);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -317,7 +338,7 @@ void UserDataTreatment(UART_HandleTypeDef *huart, uint8_t* pData, uint16_t Size)
 {
   /*
    * This function might be called in any of the following interrupt contexts :
-   *  - DMA TC and HT events
+   *  - DMA Transfer Complete (TC) and Half Transfer (HT) events
    *  - UART IDLE line event
    *
    * pData and Size defines the buffer where received data have been copied, in order to be processed.
@@ -326,6 +347,7 @@ void UserDataTreatment(UART_HandleTypeDef *huart, uint8_t* pData, uint16_t Size)
    */
   uint8_t* pBuff = pData;
   uint8_t  i;
+  char     ch;  /* cli.c */
 
   /* Implementation of loopback is on purpose implemented in direct register access,
      in order to be able to echo received characters as fast as they are received.
@@ -334,6 +356,8 @@ void UserDataTreatment(UART_HandleTypeDef *huart, uint8_t* pData, uint16_t Size)
   {
     while (!(__HAL_UART_GET_FLAG(huart, UART_FLAG_TXE))) {}
     huart->Instance->TDR = *pBuff;
+    ch = (char)*pBuff;  /* cli.c */
+    cli_put(&cli, ch);  /* cli.c */
     pBuff++;
   }
 
@@ -400,6 +424,53 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
      indicates position to which data have been processed */
   old_pos = Size;
 
+}
+
+/**
+  * @brief  Send Txt information message on UART Tx line (to PC Com port).
+  * @note   To use in conjunction with cli.c library
+  * @param  String String to be sent to user display
+  * @retval None
+  */
+void user_uart_println(char* String)  /* cli.c */
+{
+  size_t len = strlen(String);  /* bytes before '\0' */
+  if (HAL_OK != HAL_UART_Transmit(&huart1, (uint8_t*)String, (uint16_t)len, 100))
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief  asdf
+  * @note   To use in conjunction with cli.c library
+  * @param  asdf
+  * @retval cli_status_t
+  */
+cli_status_t help_func(int argc, char **argv)
+{
+  cli.println("HELP function executed");
+  return CLI_OK;
+}
+
+/**
+  * @brief  asdf
+  * @note   To use in conjunction with cli.c library
+  * @param  asdf
+  * @retval cli_status_t
+  */
+cli_status_t blink_func(int argc, char **argv)
+{
+  if (argc > 0) {
+    if (strcmp(argv[1], "-help") == 0) {
+      cli.println("BLINK help menu");
+    } else {
+      return CLI_E_INVALID_ARGS;
+    }
+  } else {
+    cli.println("BLINK function executed");
+  }
+  return CLI_OK;
 }
 
 /* USER CODE END 4 */
