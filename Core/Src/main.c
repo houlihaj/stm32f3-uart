@@ -24,7 +24,9 @@
 
 #include <stdint.h>
 #include <string.h>  /* string handling functions (ex. strcmp and memset) */
+
 #include "cli.h"
+#include "cli_cmd_fns.h"
 
 /* USER CODE END Includes */
 
@@ -72,14 +74,6 @@ uint8_t *pBufferReadyForReception;
 /**
   * @brief cli.c
   */
-static cli_status_t help_func(cli_t cli, int argc, char **argv);
-static cli_status_t blink_func(cli_t cli, int argc, char **argv);
-
-cmd_t cmd_tbl[] = {
-    {.cmd = "help", .func = help_func},
-    {.cmd = "blink", .func = blink_func}
-};
-
 cli_t cli;
 
 /* USER CODE END PV */
@@ -94,7 +88,7 @@ void PrintInfo(UART_HandleTypeDef *huart, uint8_t *String, uint16_t Size);
 void StartReception(void);
 void UserDataTreatment(UART_HandleTypeDef *huart, uint8_t* pData, uint16_t Size);
 
-void user_uart_println(char* String);
+void user_uart_println(char* String);  /* cli.c */
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -137,8 +131,8 @@ int main(void)
 
   /* cli.c */
   cli.println = user_uart_println;
-  cli.cmd_tbl = cmd_tbl;
-  cli.cmd_cnt = sizeof(cmd_tbl) / sizeof(cmd_t);
+  /* Set the cli_t (i.e. cli) cmd_tbl and cmd_cnt members */
+  cli_set_cmd_members(&cli);
   cli_init(&cli);
 
   /* Initiate Continuous reception */
@@ -442,38 +436,6 @@ void user_uart_println(char* String)  /* cli.c */
     {
         Error_Handler();
     }
-}
-
-/**
-  * @brief  asdf
-  * @note   To use in conjunction with cli.c library
-  * @param  asdf
-  * @retval cli_status_t
-  */
-cli_status_t help_func(cli_t cli, int argc, char **argv)
-{
-    cli.println("HELP function executed\r\n");
-    return CLI_OK;
-}
-
-/**
-  * @brief  asdf
-  * @note   To use in conjunction with cli.c library
-  * @param  asdf
-  * @retval cli_status_t
-  */
-cli_status_t blink_func(cli_t cli, int argc, char **argv)
-{
-    if (argc > 0) {
-        if (strcmp(argv[1], "-H") == 0 || strcmp(argv[1], "--help") == 0) {
-            cli.println("BLINK help menu\r\n");
-        } else {
-            return CLI_E_INVALID_ARGS;
-        }
-    } else {
-        cli.println("BLINK function executed\r\n");
-    }
-    return CLI_OK;
 }
 
 /* USER CODE END 4 */
