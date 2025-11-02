@@ -4,10 +4,11 @@
         {
             "name": "default",
             "hidden": true,
-            "generator": "Unix Makefiles",
+            "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
-		    "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
+            "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
             "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
         },
         {
@@ -18,21 +19,25 @@
             }
         },
         {
+            "name": "RelWithDebInfo",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
             "name": "Release",
             "inherits": "default",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
-        }
-    ],
-    "buildPresets": [
-        {
-            "name": "Debug",
-            "configurePreset": "Debug"
         },
         {
-            "name": "Release",
-            "configurePreset": "Release"
+            "name": "MinSizeRel",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "MinSizeRel"
+            }
         }
     ]
 }

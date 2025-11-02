@@ -1,5 +1,43 @@
 # stm32f3-uart
 Host PC to STM32F3 device UART interface with CLI
 
+## Requirements
+- [MSYS2 (UCRT64 environment)](https://www.msys2.org/)
+- [ARM GNU toolchain](https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-arm-none-eabi-gcc)
+- [Make](https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-make)
+- [CMake](https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-cmake)
+
+### Optional
+- [Git for Windows within the MSYS2 shell](https://stackoverflow.com/questions/78011652/installing-git-within-msys2-on-windows-11)
+
+## Build
+
+Cross-compile the project using Windows 11 and MSYS2 (UCRT64 environment)
+
+``` Bash
+mkdir Build
+cd Build
+cmake -G"Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE:PATH=".\cmake\gcc-arm-none-eabi.cmake"  ..
+make -j4
+```
+
+To rebuild, first clean using ```make clean```, then execute ```make -j4```
+
+On CMakeLists.txt update, remain in the Build directory and execute:
+
+``` Bash
+rm -rf *
+cmake -G"Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE:PATH=".\cmake\gcc-arm-none-eabi.cmake"  ..
+make -j4
+```
+
 ## External
+- [embedded-cli](https://github.com/FARLY7/embedded-cli)
+- [printf](https://github.com/eyalroz/printf)
+- [lwprintf](https://github.com/MaJerle/lwprintf)
 - [Ring-Buffer](https://github.com/AndersKaloer/Ring-Buffer)
+
+## References
+- [UART_ReceptionToIdle_CircularDMA](https://github.com/STMicroelectronics/STM32CubeF4/tree/master/Projects/STM32446E-Nucleo/Examples/UART/UART_ReceptionToIdle_CircularDMA)
+- [stm32-usart-uart-dma-rx-tx](https://github.com/MaJerle/stm32-usart-uart-dma-rx-tx)
+- [Artful Bytes - Printf on a Microcontroller](https://www.youtube.com/watch?v=ZdDxx1GIFj0&t=1590s)

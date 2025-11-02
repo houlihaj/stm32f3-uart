@@ -72,10 +72,13 @@ uint8_t *pBufferReadyForReception;
 /**
   * @brief cli.c
   */
-static cli_status_t help_func(int argc, char **argv);
-static cli_status_t blink_func(int argc, char **argv);
+static cli_status_t help_func(cli_t cli, int argc, char **argv);
+static cli_status_t blink_func(cli_t cli, int argc, char **argv);
 
-cmd_t cmd_tbl[] = {{.cmd = "help", .func = help_func}, {.cmd = "blink", .func = blink_func}};
+cmd_t cmd_tbl[] = {
+    {.cmd = "help", .func = help_func},
+    {.cmd = "blink", .func = blink_func}
+};
 
 cli_t cli;
 
@@ -284,10 +287,10 @@ static void MX_GPIO_Init(void)
   */
 void PrintInfo(UART_HandleTypeDef *huart, uint8_t *String, uint16_t Size)
 {
-  if (HAL_OK != HAL_UART_Transmit(huart, String, Size, 100))
-  {
-    Error_Handler();
-  }
+    if (HAL_OK != HAL_UART_Transmit(huart, String, Size, 100))
+    {
+        Error_Handler();
+    }
 }
 
 /**
@@ -296,32 +299,32 @@ void PrintInfo(UART_HandleTypeDef *huart, uint8_t *String, uint16_t Size)
   */
 void StartReception(void)
 {
-  /* Initializes Buffer swap mechanism (used in User callback) :
-     - 2 physical buffers aRXBufferA and aRXBufferB (RX_BUFFER_SIZE length)
-  */
-  pBufferReadyForReception = aRXBufferA;
-  pBufferReadyForUser      = aRXBufferB;
-  uwNbReceivedChars        = 0;
+    /* Initializes Buffer swap mechanism (used in User callback) :
+        - 2 physical buffers aRXBufferA and aRXBufferB (RX_BUFFER_SIZE length)
+    */
+    pBufferReadyForReception = aRXBufferA;
+    pBufferReadyForUser      = aRXBufferB;
+    uwNbReceivedChars        = 0;
 
-  /* Print user info on PC com port */
-  PrintInfo(&huart1, aTextInfoStart, COUNTOF(aTextInfoStart));
+    /* Print user info on PC com port */
+    PrintInfo(&huart1, aTextInfoStart, COUNTOF(aTextInfoStart));
 
-  /* Initializes Rx sequence using Reception To Idle event API.
-     As DMA channel associated to UART Rx is configured as Circular,
-     reception is endless.
-     If reception has to be stopped, call to HAL_UART_AbortReceive() could be used.
+    /* Initializes Rx sequence using Reception To Idle event API.
+        As DMA channel associated to UART Rx is configured as Circular,
+        reception is endless.
+        If reception has to be stopped, call to HAL_UART_AbortReceive() could be used.
 
-     Use of HAL_UARTEx_ReceiveToIdle_DMA service, will generate calls to
-     user defined HAL_UARTEx_RxEventCallback callback for each occurrence of
-     following events :
-     - DMA RX Half Transfer event (HT)
-     - DMA RX Transfer Complete event (TC)
-     - IDLE event on UART Rx line (indicating a pause is UART reception flow)
-  */
-  if (HAL_OK != HAL_UARTEx_ReceiveToIdle_DMA(&huart1, aRXBufferUser, RX_BUFFER_SIZE))
-  {
-    Error_Handler();
-  }
+        Use of HAL_UARTEx_ReceiveToIdle_DMA service, will generate calls to
+        user defined HAL_UARTEx_RxEventCallback callback for each occurrence of
+        following events :
+        - DMA RX Half Transfer event (HT)
+        - DMA RX Transfer Complete event (TC)
+        - IDLE event on UART Rx line (indicating a pause is UART reception flow)
+    */
+    if (HAL_OK != HAL_UARTEx_ReceiveToIdle_DMA(&huart1, aRXBufferUser, RX_BUFFER_SIZE))
+    {
+        Error_Handler();
+    }
 }
 
 /**
@@ -336,30 +339,30 @@ void StartReception(void)
   */
 void UserDataTreatment(UART_HandleTypeDef *huart, uint8_t* pData, uint16_t Size)
 {
-  /*
-   * This function might be called in any of the following interrupt contexts :
-   *  - DMA Transfer Complete (TC) and Half Transfer (HT) events
-   *  - UART IDLE line event
-   *
-   * pData and Size defines the buffer where received data have been copied, in order to be processed.
-   * During this processing of already received data, reception is still ongoing.
-   *
-   */
-  uint8_t* pBuff = pData;
-  uint8_t  i;
-  char     ch;  /* cli.c */
+    /*
+    * This function might be called in any of the following interrupt contexts :
+    *  - DMA Transfer Complete (TC) and Half Transfer (HT) events
+    *  - UART IDLE line event
+    *
+    * pData and Size defines the buffer where received data have been copied, in order to be processed.
+    * During this processing of already received data, reception is still ongoing.
+    *
+    */
+    uint8_t* pBuff = pData;
+    uint8_t  i;
+    char     ch;  /* cli.c */
 
-  /* Implementation of loopback is on purpose implemented in direct register access,
-     in order to be able to echo received characters as fast as they are received.
-     Wait for TC flag to be raised at end of transmit is then removed, only TXE is checked */
-  for (i = 0; i < Size; i++)
-  {
-    while (!(__HAL_UART_GET_FLAG(huart, UART_FLAG_TXE))) {}
-    huart->Instance->TDR = *pBuff;
-    ch = (char)*pBuff;  /* cli.c */
-    cli_put(&cli, ch);  /* cli.c */
-    pBuff++;
-  }
+    /* Implementation of loopback is on purpose implemented in direct register access,
+        in order to be able to echo received characters as fast as they are received.
+        Wait for TC flag to be raised at end of transmit is then removed, only TXE is checked */
+    for (i = 0; i < Size; i++)
+    {
+        while (!(__HAL_UART_GET_FLAG(huart, UART_FLAG_TXE))) {}
+        huart->Instance->TDR = *pBuff;
+        ch = (char)*pBuff;  /* cli.c */
+        cli_put(&cli, ch);  /* cli.c */
+        pBuff++;
+    }
 
 }
 
@@ -373,56 +376,56 @@ void UserDataTreatment(UART_HandleTypeDef *huart, uint8_t* pData, uint16_t Size)
   */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-  static uint8_t old_pos = 0;
-  uint8_t *ptemp;
-  uint8_t i;
+    static uint8_t old_pos = 0;
+    uint8_t *ptemp;
+    uint8_t i;
 
-  /* Check if number of received data in recpetion buffer has changed */
-  if (Size != old_pos)
-  {
-    /* Check if position of index in reception buffer has simply be increased
-       of if end of buffer has been reached */
-    if (Size > old_pos)
+    /* Check if number of received data in recpetion buffer has changed */
+    if (Size != old_pos)
     {
-      /* Current position is higher than previous one */
-      uwNbReceivedChars = Size - old_pos;
-      /* Copy received data in "User" buffer for evacuation */
-      for (i = 0; i < uwNbReceivedChars; i++)
-      {
-        pBufferReadyForUser[i] = aRXBufferUser[old_pos + i];
-      }
-    }
-    else
-    {
-      /* Current position is lower than previous one : end of buffer has been reached */
-      /* First copy data from current position till end of buffer */
-      uwNbReceivedChars = RX_BUFFER_SIZE - old_pos;
-      /* Copy received data in "User" buffer for evacuation */
-      for (i = 0; i < uwNbReceivedChars; i++)
-      {
-        pBufferReadyForUser[i] = aRXBufferUser[old_pos + i];
-      }
-      /* Check and continue with beginning of buffer */
-      if (Size > 0)
-      {
-        for (i = 0; i < Size; i++)
+        /* Check if position of index in reception buffer has simply be increased
+            of if end of buffer has been reached */
+        if (Size > old_pos)
         {
-          pBufferReadyForUser[uwNbReceivedChars + i] = aRXBufferUser[i];
+            /* Current position is higher than previous one */
+            uwNbReceivedChars = Size - old_pos;
+            /* Copy received data in "User" buffer for evacuation */
+            for (i = 0; i < uwNbReceivedChars; i++)
+            {
+                pBufferReadyForUser[i] = aRXBufferUser[old_pos + i];
+            }
         }
-        uwNbReceivedChars += Size;
-      }
-    }
-    /* Process received data that has been extracted from Rx User buffer */
-    UserDataTreatment(huart, pBufferReadyForUser, uwNbReceivedChars);
+        else
+        {
+            /* Current position is lower than previous one : end of buffer has been reached */
+            /* First copy data from current position till end of buffer */
+            uwNbReceivedChars = RX_BUFFER_SIZE - old_pos;
+            /* Copy received data in "User" buffer for evacuation */
+            for (i = 0; i < uwNbReceivedChars; i++)
+            {
+                pBufferReadyForUser[i] = aRXBufferUser[old_pos + i];
+            }
+            /* Check and continue with beginning of buffer */
+            if (Size > 0)
+            {
+                for (i = 0; i < Size; i++)
+                {
+                    pBufferReadyForUser[uwNbReceivedChars + i] = aRXBufferUser[i];
+                }
+                uwNbReceivedChars += Size;
+            }
+        }
+        /* Process received data that has been extracted from Rx User buffer */
+        UserDataTreatment(huart, pBufferReadyForUser, uwNbReceivedChars);
 
-    /* Swap buffers for next bytes to be processed */
-    ptemp = pBufferReadyForUser;
-    pBufferReadyForUser = pBufferReadyForReception;
-    pBufferReadyForReception = ptemp;
-  }
-  /* Update old_pos as new reference of position in User Rx buffer that
-     indicates position to which data have been processed */
-  old_pos = Size;
+        /* Swap buffers for next bytes to be processed */
+        ptemp = pBufferReadyForUser;
+        pBufferReadyForUser = pBufferReadyForReception;
+        pBufferReadyForReception = ptemp;
+    }
+    /* Update old_pos as new reference of position in User Rx buffer that
+        indicates position to which data have been processed */
+    old_pos = Size;
 
 }
 
@@ -434,43 +437,43 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
   */
 void user_uart_println(char* String)  /* cli.c */
 {
-  size_t len = strlen(String);  /* bytes before '\0' */
-  if (HAL_OK != HAL_UART_Transmit(&huart1, (uint8_t*)String, (uint16_t)len, 100))
-  {
-    Error_Handler();
-  }
-}
-
-/**
-  * @brief  asdf
-  * @note   To use in conjunction with cli.c library
-  * @param  asdf
-  * @retval cli_status_t
-  */
-cli_status_t help_func(int argc, char **argv)
-{
-  cli.println("HELP function executed");
-  return CLI_OK;
-}
-
-/**
-  * @brief  asdf
-  * @note   To use in conjunction with cli.c library
-  * @param  asdf
-  * @retval cli_status_t
-  */
-cli_status_t blink_func(int argc, char **argv)
-{
-  if (argc > 0) {
-    if (strcmp(argv[1], "-help") == 0) {
-      cli.println("BLINK help menu");
-    } else {
-      return CLI_E_INVALID_ARGS;
+    size_t len = strlen(String);  /* bytes before '\0' */
+    if (HAL_OK != HAL_UART_Transmit(&huart1, (uint8_t*)String, (uint16_t)len, 100))
+    {
+        Error_Handler();
     }
-  } else {
-    cli.println("BLINK function executed");
-  }
-  return CLI_OK;
+}
+
+/**
+  * @brief  asdf
+  * @note   To use in conjunction with cli.c library
+  * @param  asdf
+  * @retval cli_status_t
+  */
+cli_status_t help_func(cli_t cli, int argc, char **argv)
+{
+    cli.println("HELP function executed\r\n");
+    return CLI_OK;
+}
+
+/**
+  * @brief  asdf
+  * @note   To use in conjunction with cli.c library
+  * @param  asdf
+  * @retval cli_status_t
+  */
+cli_status_t blink_func(cli_t cli, int argc, char **argv)
+{
+    if (argc > 0) {
+        if (strcmp(argv[1], "-H") == 0 || strcmp(argv[1], "--help") == 0) {
+            cli.println("BLINK help menu\r\n");
+        } else {
+            return CLI_E_INVALID_ARGS;
+        }
+    } else {
+        cli.println("BLINK function executed\r\n");
+    }
+    return CLI_OK;
 }
 
 /* USER CODE END 4 */

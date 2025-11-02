@@ -45,14 +45,18 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-    ${CMAKE_CURRENT_SOURCE_DIR}/External/embedded-cli/cli.c
-    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/uart_api.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/cli.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/printf.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/External/printf/src/printf/printf.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/External/lwprintf/lwprintf/src/lwprintf/lwprintf.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
-    ${CMAKE_CURRENT_SOURCE_DIR}/External/embedded-cli
+    # ${CMAKE_CURRENT_SOURCE_DIR}/External/printf/src/printf
+    # ${CMAKE_CURRENT_SOURCE_DIR}/External/lwprintf/lwprintf/src/include/lwprintf
+    # ${CMAKE_CURRENT_SOURCE_DIR}/External/lwprintf/lwprintf/src/include/system
 )
 
 # Add project symbols (macros)

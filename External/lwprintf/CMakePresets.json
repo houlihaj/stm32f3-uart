@@ -4,35 +4,37 @@
         {
             "name": "default",
             "hidden": true,
-            "generator": "Unix Makefiles",
+            "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
-		    "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
             "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
         },
         {
-            "name": "Debug",
+            "name": "Win32-Debug",
             "inherits": "default",
+            "toolchainFile": "${sourceDir}/cmake/i686-w64-mingw32-gcc.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         },
         {
-            "name": "Release",
+            "name": "Win64-Debug",
             "inherits": "default",
+            "toolchainFile": "${sourceDir}/cmake/x86_64-w64-mingw32-gcc.cmake",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Debug"
             }
         }
     ],
     "buildPresets": [
         {
-            "name": "Debug",
-            "configurePreset": "Debug"
+            "name": "Win32-Debug",
+            "configurePreset": "Win32-Debug"
         },
         {
-            "name": "Release",
-            "configurePreset": "Release"
+            "name": "Win64-Debug",
+            "configurePreset": "Win64-Debug"
         }
     ]
 }
