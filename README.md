@@ -35,6 +35,17 @@ cmake -G"Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE:PATH=".
 make -j4
 ```
 
+## Program MCU
+
+Download and install the [STM32 ST-LINK utility](https://www.st.com/en/development-tools/stsw-link004.html). The CLI application "ST-LINK_CLI.exe" is included in the installation.
+
+- [STM32 ST-LINK utility](https://www.st.com/en/development-tools/stsw-link004.html)
+
+### Potential Alternatives
+
+- [openocd](https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-openocd)
+- [stlink](https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-stlink?repo=ucrt64)
+
 ## External
 - [embedded-cli](https://github.com/FARLY7/embedded-cli)
 - [printf](https://github.com/eyalroz/printf)
