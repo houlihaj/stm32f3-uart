@@ -4,12 +4,14 @@
 #include "cli_cmd_fns.h"
 #include "printf.h"
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 cmd_t cmd_tbl[] = {
     {.cmd = "help", .func = help_func},
     {.cmd = "blink", .func = blink_func},
-    {.cmd = "add", .func = add_func}
+    {.cmd = "add", .func = add_func},
+    {.cmd = "multiply", .func = multiply_func}
 };
 
 /**
@@ -65,9 +67,35 @@ cli_status_t blink_func(cli_t cli, int argc, char **argv)
 cli_status_t add_func(cli_t cli, int argc, char **argv)
 {
     cli.println("ADD function executed\r\n");
-    size_t len = 32;
-    char String[len];
-    snprintf_(String, len, "%d + %d = %d\r\n", 10, 20, 30);
-    cli.println(String);
+    if (argc > 2) {
+        size_t len = 32;
+        char String[len];
+        uint8_t a = atoi(argv[1]);
+        uint8_t b = atoi(argv[2]);
+        uint16_t c = a + b;
+        snprintf_(String, len, "%d + %d = %d\r\n", a, b, c);
+        cli.println(String);
+    }
+    return CLI_OK;
+}
+
+/**
+  * @brief  asdf
+  * @note   To use in conjunction with cli.c library
+  * @param  asdf
+  * @retval cli_status_t
+  */
+cli_status_t multiply_func(cli_t cli, int argc, char **argv)
+{
+    cli.println("MULTIPLY function executed\r\n");
+    if (argc > 2) {
+        size_t len = 32;
+        char String[len];
+        uint8_t a = atoi(argv[1]);
+        uint8_t b = atoi(argv[2]);
+        uint16_t c = a * b;
+        snprintf_(String, len, "%d * %d = %d\r\n", a, b, c);
+        cli.println(String);
+    }
     return CLI_OK;
 }

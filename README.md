@@ -39,7 +39,11 @@ make -j4
 
 Download and install the [STM32 ST-LINK utility](https://www.st.com/en/development-tools/stsw-link004.html). The CLI application "ST-LINK_CLI.exe" is included in the installation.
 
-- [STM32 ST-LINK utility](https://www.st.com/en/development-tools/stsw-link004.html)
+``` bash
+"ST-LINK_CLI.exe" -c SN=55FF6C064882485358622187 SWD FREQ=4000 LPM -P "C:\path\to\file.hex" 0x08000000 -V "after_programming" -Run
+```
+
+- [DB3068 STM32 ST-LINK Utility for STM32 MCUs](https://www.st.com/en/development-tools/stsw-link004.html#documentation) Documentation explaining how to use ST-LINK_CLI.exe
 
 ### Potential Alternatives
 
@@ -49,7 +53,6 @@ Download and install the [STM32 ST-LINK utility](https://www.st.com/en/developme
 ## External
 - [embedded-cli](https://github.com/FARLY7/embedded-cli)
 - [printf](https://github.com/eyalroz/printf)
-- [lwprintf](https://github.com/MaJerle/lwprintf)
 - [Ring-Buffer](https://github.com/AndersKaloer/Ring-Buffer)
 
 ## References
